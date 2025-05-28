@@ -31,12 +31,10 @@
 
 ## 📷 Screenshots
 
-> *(Add screenshots here once available)*  
-> Example:
-> ```markdown
-> ![Home Screen](screenshots/home.jpeg)
-> ![Book Details](screenshots/book_details.jpeg)
-> ```
+```markdown
+![Home Screen](screenshots/home.jpeg)
+![Book Details](screenshots/book_details.jpeg)
+```
 
 ---
 
