@@ -34,8 +34,8 @@
 > *(Add screenshots here once available)*  
 > Example:
 > ```markdown
-> ![Home Screen](screenshots/home.png)
-> ![Book Details](screenshots/book_details.png)
+> ![Home Screen](screenshots/home.jpeg)
+> ![Book Details](screenshots/book_details.jpeg)
 > ```
 
 ---
@@ -92,6 +92,6 @@ The app’s user journey is documented in a PlantUML diagram.
 
 You can find the full user flow diagram here:
 
-📄 [`/docs/app-flow.puml`](docs/app-flow.puml)
+📄 [`/docs/app-flow.puml`](screenshots/uml.jpeg)
 
 
