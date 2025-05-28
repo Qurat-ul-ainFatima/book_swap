@@ -33,60 +33,64 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Calculate a suitable height for the grid
+    // Get screen dimensions
     final double screenHeight = MediaQuery.of(context).size.height;
-    final double gridHeight = screenHeight * 0.55; // about 55% of screen height
+    final double screenWidth = MediaQuery.of(context).size.width;
+    
+    // Calculate responsive dimensions
+    final double gridHeight = screenHeight * 0.55;
+    final bool isSmallScreen = screenWidth < 400;
+    final double cardPadding = isSmallScreen ? 8 : 10;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9F7FC),
       body: SafeArea(
-        child: SingleChildScrollView(  // <-- Added scroll view here
+        child: SingleChildScrollView(
           child: Column(
             children: [
               // Top bar with profile icon
               Padding(
-  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-  child: Row(
-    children: [
-      Expanded(
-        child: Center(
-          child: ShaderMask(
-            shaderCallback: (bounds) => const LinearGradient(
-              colors: [Color(0xFF23D7BC), Color(0xFF1CA885)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
-            child: const Text(
-              'Explore',
-              style: TextStyle(
-                fontSize: 30,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Center(
+                        child: ShaderMask(
+                          shaderCallback: (bounds) => const LinearGradient(
+                            colors: [Color(0xFF23D7BC), Color(0xFF1CA885)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
+                          child: const Text(
+                            'Explore',
+                            style: TextStyle(
+                              fontSize: 30,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () async {
+                        String userId = FirebaseAuth.instance.currentUser!.uid;
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AboutMeScreen(userId: userId),
+                          ),
+                        );
+                      },
+                      child: CircleAvatar(
+                        radius: 26,
+                        backgroundColor: Colors.grey.shade200,
+                        backgroundImage: const AssetImage('assets/images/user.png'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ),
-        ),
-      ),
-      GestureDetector(
-        onTap: () async {
-          String userId = FirebaseAuth.instance.currentUser!.uid;
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AboutMeScreen(userId: userId),
-            ),
-          );
-        },
-        child: CircleAvatar(
-          radius: 26,
-          backgroundColor: Colors.grey.shade200,
-          backgroundImage: const AssetImage('assets/images/user.png'),
-        ),
-      ),
-    ],
-  ),
-),
-
 
               // Category Icons
               Container(
@@ -271,11 +275,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
                     return GridView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 2,
                         crossAxisSpacing: 18,
                         mainAxisSpacing: 18,
-                        childAspectRatio: 0.65,
+                        childAspectRatio: isSmallScreen ? 0.68 : 0.65, // Slightly taller for small screens
                       ),
                       itemCount: books.length,
                       itemBuilder: (context, index) {
@@ -311,98 +315,129 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             ),
                             child: Padding(
-                              padding: const EdgeInsets.all(10),
+                              padding: EdgeInsets.all(cardPadding),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Stack(
-                                    children: [
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(18),
-                                        child: imageBase64 != null
-                                            ? Image.memory(
-                                                base64Decode(imageBase64),
-                                                height: 160,
-                                                width: double.infinity,
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (context, error, stackTrace) {
-                                                  return Container(
-                                                    height: 160,
-                                                    width: double.infinity,
+                                  // Image container with flexible height
+                                  Expanded(
+                                    flex: 7, // Takes up most of the card space
+                                    child: Stack(
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(18),
+                                          child: Container(
+                                            width: double.infinity,
+                                            height: double.infinity,
+                                            child: imageBase64 != null
+                                                ? Image.memory(
+                                                    base64Decode(imageBase64),
+                                                    fit: BoxFit.cover,
+                                                    errorBuilder: (context, error, stackTrace) {
+                                                      return Container(
+                                                        color: Colors.grey[300],
+                                                        child: const Icon(
+                                                          Icons.book,
+                                                          size: 60,
+                                                          color: Colors.grey,
+                                                        ),
+                                                      );
+                                                    },
+                                                  )
+                                                : Container(
                                                     color: Colors.grey[300],
                                                     child: const Icon(
                                                       Icons.book,
                                                       size: 60,
                                                       color: Colors.grey,
                                                     ),
-                                                  );
-                                                },
-                                              )
-                                            : Container(
-                                                height: 160,
-                                                width: double.infinity,
-                                                color: Colors.grey[300],
-                                                child: const Icon(
-                                                  Icons.book,
-                                                  size: 60,
-                                                  color: Colors.grey,
+                                                  ),
+                                          ),
+                                        ),
+                                        Positioned(
+                                          right: 8,
+                                          bottom: 8,
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              shape: BoxShape.circle,
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black26,
+                                                  blurRadius: 4,
+                                                  offset: Offset(0, 2),
+                                                ),
+                                              ],
+                                            ),
+                                            padding: const EdgeInsets.all(6),
+                                            child: Icon(
+                                              Icons.add, 
+                                              size: isSmallScreen ? 16 : 18, 
+                                              color: Color(0xFF23D7BC)
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  
+                                  // Content section with fixed space
+                                  Expanded(
+                                    flex: 3, // Fixed space for text content
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(top: 8),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              bookTitle,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: isSmallScreen ? 12 : 14,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Flexible(
+                                                child: Text(
+                                                  '\$ $bookPrice',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w700,
+                                                    fontSize: isSmallScreen ? 14 : 16,
+                                                    color: Color(0xFF23D7BC),
+                                                  ),
                                                 ),
                                               ),
-                                      ),
-                                      Positioned(
-                                        right: 12,
-                                        bottom: 12,
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            shape: BoxShape.circle,
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black26,
-                                                blurRadius: 4,
-                                                offset: Offset(0, 2),
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(
+                                                    Icons.star, 
+                                                    color: Colors.orangeAccent, 
+                                                    size: isSmallScreen ? 12 : 14
+                                                  ),
+                                                  const SizedBox(width: 2),
+                                                  Text(
+                                                    bookRating.toString(),
+                                                    style: TextStyle(
+                                                      fontWeight: FontWeight.w600, 
+                                                      fontSize: isSmallScreen ? 11 : 13
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ],
                                           ),
-                                          padding: const EdgeInsets.all(8),
-                                          child: const Icon(Icons.add, size: 20, color: Color(0xFF23D7BC)),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 14),
-                                  Text(
-                                    bookTitle,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        '\$ $bookPrice',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 16,
-                                          color: Color(0xFF23D7BC),
-                                        ),
-                                      ),
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.star, color: Colors.orangeAccent, size: 14),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            bookRating.toString(),
-                                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                                          ),
                                         ],
                                       ),
-                                    ],
+                                    ),
                                   ),
                                 ],
                               ),
@@ -418,12 +453,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
- floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF23D7BC),
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const SellingPage()),
+            MaterialPageRoute(builder: (context) => const SellingPage()),
           );
         },
         child: const Icon(Icons.sell, size: 28),
@@ -494,6 +529,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-),
-);}
+      ),
+    );
+  }
 }

@@ -4,9 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'email_service.dart';
 
 class MyCart extends StatefulWidget {
-  final List<Map<String, dynamic>>? initialItems;
-
-  const MyCart({super.key, this.initialItems});
+  const MyCart({super.key});
 
   @override
   State<MyCart> createState() => _MyCartState();
@@ -19,12 +17,11 @@ class _MyCartState extends State<MyCart> {
 
   Future<List<Map<String, dynamic>>> fetchCartItems() async {
     try {
-      final cartSnapshot =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(userId)
-              .collection('cart')
-              .get();
+      final cartSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('cart')
+          .get();
 
       List<Map<String, dynamic>> items = [];
 
@@ -32,11 +29,10 @@ class _MyCartState extends State<MyCart> {
         String bookId = cartDoc.id;
         int quantity = cartDoc['quantity'];
 
-        final bookSnapshot =
-            await FirebaseFirestore.instance
-                .collection('books')
-                .doc(bookId)
-                .get();
+        final bookSnapshot = await FirebaseFirestore.instance
+            .collection('books')
+            .doc(bookId)
+            .get();
 
         if (bookSnapshot.exists) {
           final bookData = bookSnapshot.data();
@@ -48,10 +44,6 @@ class _MyCartState extends State<MyCart> {
               'quantity': quantity,
               'sellerEmail': bookData['sellerEmail'] ?? '',
               'sellerName': bookData['sellerName'] ?? '',
-              'image_url':
-                  (bookData['images'] as List).isNotEmpty
-                      ? bookData['images'][0] // ✅ Get first image from Firestore
-                      : '',
             });
           }
         }
@@ -59,6 +51,7 @@ class _MyCartState extends State<MyCart> {
 
       return items;
     } catch (e) {
+      //print('Error fetching cart items: $e');
       return [];
     }
   }
@@ -85,10 +78,10 @@ class _MyCartState extends State<MyCart> {
   }
 
   double getTotal(List<Map<String, dynamic>> items) {
-    return items.fold(0.0, (sum, item) {
+    return items.fold(0.0, (sumVar, item) {
       final price = double.tryParse(item['price'].toString()) ?? 0.0;
       final quantity = item['quantity'] ?? 1;
-      return sum + (price * quantity);
+      return sumVar + (price * quantity);
     });
   }
 
@@ -111,19 +104,22 @@ class _MyCartState extends State<MyCart> {
               DropdownButton<String>(
                 value: selectedPaymentMethod,
                 isExpanded: true,
-                items:
-                    ['Cash on Delivery', 'Credit Card', 'Easypaisa']
-                        .map(
-                          (method) => DropdownMenuItem(
-                            value: method,
-                            child: Text(method),
-                          ),
-                        )
-                        .toList(),
+                items: [
+                  'Cash on Delivery',
+                  'Credit Card',
+                  'Easypaisa',
+                ]
+                    .map(
+                      (method) => DropdownMenuItem(
+                        value: method,
+                        child: Text(method),
+                      ),
+                    )
+                    .toList(),
                 onChanged: (value) {
                   setState(() => selectedPaymentMethod = value!);
                   Navigator.of(context).pop();
-                  _checkout(items);
+                  _checkout(items); // reopen dialog with updated selection
                 },
               ),
             ],
@@ -158,17 +154,16 @@ class _MyCartState extends State<MyCart> {
                     orderId: DateTime.now().millisecondsSinceEpoch.toString(),
                     buyerAddress: address,
                     buyerContact: "123",
-                    orders:
-                        sellerItems
-                            .map(
-                              (item) => {
-                                'name': item['title'],
-                                'price': item['price'],
-                                'units': item['quantity'],
-                                'image_url': item['image_url'] ?? '',
-                              },
-                            )
-                            .toList(),
+                    orders: sellerItems
+                        .map(
+                          (item) => {
+                            'name': item['title'],
+                            'price': item['price'],
+                            'units': item['quantity'],
+                            'image_url': 'https://via.placeholder.com/64',
+                          },
+                        )
+                        .toList(),
                     cost: {
                       'shipping': 100,
                       'tax': 0,
@@ -179,28 +174,26 @@ class _MyCartState extends State<MyCart> {
 
                 final buyer = FirebaseAuth.instance.currentUser;
                 final buyerEmail = buyer?.email ?? '';
-                final buyerNameSnapshot =
-                    await FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(userId)
-                        .get();
+                final buyerNameSnapshot = await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(userId)
+                    .get();
                 final buyerName = buyerNameSnapshot['username'] ?? 'Buyer';
 
                 await sendOrderToBuyer(
                   toEmail: buyerEmail,
                   buyerName: buyerName,
                   orderId: DateTime.now().millisecondsSinceEpoch.toString(),
-                  orders:
-                      items
-                          .map(
-                            (item) => {
-                              'name': item['title'],
-                              'price': item['price'],
-                              'units': item['quantity'],
-                              'image_url': 'https://via.placeholder.com/64',
-                            },
-                          )
-                          .toList(),
+                  orders: items
+                      .map(
+                        (item) => {
+                          'name': item['title'],
+                          'price': item['price'],
+                          'units': item['quantity'],
+                          'image_url': 'https://via.placeholder.com/64',
+                        },
+                      )
+                      .toList(),
                   cost: {
                     'shipping': 100,
                     'tax': 0,
@@ -209,10 +202,13 @@ class _MyCartState extends State<MyCart> {
                   shippingAddress: address,
                 );
 
+                // ✅ Delay snackbar to prevent context error
                 Future.delayed(Duration.zero, () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Checkout confirmed! Email sent.'),
+                      content: Text(
+                        'Checkout confirmed! Email sent to seller.',
+                      ),
                     ),
                   );
                 });
@@ -237,14 +233,10 @@ class _MyCartState extends State<MyCart> {
 
   @override
   Widget build(BuildContext context) {
-    print("🛒 DEBUG - initialItems: ${widget.initialItems}");
     return Scaffold(
       appBar: AppBar(title: const Text('My Cart')),
       body: FutureBuilder<List<Map<String, dynamic>>>(
-        future:
-            widget.initialItems != null
-                ? Future.value(widget.initialItems!)
-                : fetchCartItems(),
+        future: fetchCartItems(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -256,61 +248,74 @@ class _MyCartState extends State<MyCart> {
             return const Center(child: Text('Your cart is empty'));
           }
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
+          return Column(
             children: [
-              ...cartItems.map(
-                (item) => Card(
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  child: ListTile(
-                    title: Text(item['title']),
-                    subtitle: Text('Price: Rs ${item['price']}'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove),
-                          onPressed:
-                              () => updateQuantity(
+              Expanded(
+                child: ListView.builder(
+                  itemCount: cartItems.length,
+                  itemBuilder: (_, index) {
+                    final item = cartItems[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: ListTile(
+                        title: Text(item['title']),
+                        subtitle: Text('Price: Rs ${item['price']}'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.remove),
+                              onPressed: () => updateQuantity(
                                 item['bookId'],
                                 item['quantity'],
                                 -1,
                               ),
-                        ),
-                        Text('${item['quantity']}'),
-                        IconButton(
-                          icon: const Icon(Icons.add),
-                          onPressed:
-                              () => updateQuantity(
+                            ),
+                            Text('${item['quantity']}'),
+                            IconButton(
+                              icon: const Icon(Icons.add),
+                              onPressed: () => updateQuantity(
                                 item['bookId'],
                                 item['quantity'],
                                 1,
                               ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => removeItem(item['bookId']),
+                            ),
+                          ],
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => removeItem(item['bookId']),
-                        ),
-                      ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Total: Rs ${getTotal(cartItems).toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 10),
+                    ElevatedButton(
+                      onPressed: () => _checkout(cartItems),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.all(14),
+                      ),
+                      child: const Text('Proceed to Checkout'),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Total: Rs ${getTotal(cartItems).toStringAsFixed(2)}',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: () => _checkout(cartItems),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.all(14),
-                ),
-                child: const Text('Proceed to Checkout'),
               ),
             ],
           );

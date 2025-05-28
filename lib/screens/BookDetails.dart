@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'my_cart.dart';
 
 class BookDetails extends StatefulWidget {
   final String bookId;
@@ -20,35 +19,31 @@ class _BookDetailsState extends State<BookDetails> {
   bool isLiked = false;
   bool isSoldOut = false;
   int bookQuantity = 0;
+ 
 
   String userId = FirebaseAuth.instance.currentUser!.uid;
 
   @override
-  void initState() {
-    super.initState();
-    _fetchBookInventoryAndCartStatus();
-  }
+void initState() {
+  super.initState();
+  _fetchBookInventoryAndCartStatus();
+}
 
   Future<void> _fetchBookInventoryAndCartStatus() async {
     final bookDoc =
-        await FirebaseFirestore.instance
-            .collection('books')
-            .doc(widget.bookId)
-            .get();
+        await FirebaseFirestore.instance.collection('books').doc(widget.bookId).get();
 
     if (!bookDoc.exists) return;
 
     final bookData = bookDoc.data() as Map<String, dynamic>;
-    final totalQuantity =
-        int.tryParse(bookData['number_of_copies'].toString()) ?? 0;
+    final totalQuantity = int.tryParse(bookData['number_of_copies'].toString()) ?? 0;
 
-    final cartSnapshot =
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .collection('cart')
-            .where('bookId', isEqualTo: widget.bookId)
-            .get();
+    final cartSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('cart')
+        .where('bookId', isEqualTo: widget.bookId)
+        .get();
 
     final cartCount = cartSnapshot.docs.length;
 
@@ -61,10 +56,7 @@ class _BookDetailsState extends State<BookDetails> {
 
   Future<void> _addToCart() async {
     final bookDoc =
-        await FirebaseFirestore.instance
-            .collection('books')
-            .doc(widget.bookId)
-            .get();
+        await FirebaseFirestore.instance.collection('books').doc(widget.bookId).get();
 
     final bookData = bookDoc.data();
     if (bookData == null) return;
@@ -72,24 +64,22 @@ class _BookDetailsState extends State<BookDetails> {
     final currentQuantity = bookData['number_of_copies'] ?? 0;
 
     if (currentQuantity > 0) {
-      // Add book to cart in Firestore
+      // Add book info to user's cart
       await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
           .collection('cart')
           .doc(widget.bookId)
           .set({
-            'title': bookData['title'],
-            'author': bookData['author'],
-            'price': bookData['price'],
-            'image':
-                (bookData['images'] as List).isNotEmpty
-                    ? bookData['images'][0]
-                    : '',
-            'quantity': 1,
-            'bookId': widget.bookId,
-          });
+        'title': bookData['title'],
+        'author': bookData['author'],
+        'price': bookData['price'],
+        'image': (bookData['images'] as List).isNotEmpty ? bookData['images'][0] : '',
+        'quantity': 1, // or however many the user wants to buy
+        'bookId': widget.bookId,
+      });
 
+      // Decrease the inventory
       await FirebaseFirestore.instance
           .collection('books')
           .doc(widget.bookId)
@@ -100,30 +90,9 @@ class _BookDetailsState extends State<BookDetails> {
         bookQuantity--;
         isSoldOut = bookQuantity == 0;
       });
-
-      // Navigate directly to cart with book data
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder:
-              (_) => MyCart(
-                initialItems: [
-                  {
-                    'bookId': widget.bookId,
-                    'title': bookData['title'],
-                    'price': bookData['price'],
-                    'quantity': 1,
-                    'sellerEmail': bookData['sellerEmail'] ?? '',
-                    'sellerName': bookData['sellerName'] ?? '',
-                  },
-                ],
-              ),
-        ),
-      );
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('This book is sold out!')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('This book is sold out!')));
     }
   }
 
@@ -159,9 +128,8 @@ class _BookDetailsState extends State<BookDetails> {
       if (await canLaunchUrl(whatsappUri)) {
         await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Opening WhatsApp...')));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('Opening WhatsApp...')));
         }
       } else {
         if (mounted) {
@@ -172,9 +140,8 @@ class _BookDetailsState extends State<BookDetails> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error opening WhatsApp: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error opening WhatsApp: $e')));
       }
     }
   }
@@ -215,86 +182,69 @@ class _BookDetailsState extends State<BookDetails> {
               color: isLiked ? Colors.red : Colors.black,
             ),
             onPressed: () async {
-              setState(() => isLiked = !isLiked);
+  setState(() => isLiked = !isLiked);
 
-              final likedRef = FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(userId)
-                  .collection('liked_books');
+  final likedRef = FirebaseFirestore.instance
+      .collection('users')
+      .doc(userId)
+      .collection('liked_books');
 
-              if (isLiked) {
-                // Save to liked_books
-                await likedRef.doc(widget.bookId).set({
-                  'bookId': widget.bookId,
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Row(
-                      children: const [
-                        Icon(Icons.favorite, color: Colors.white),
-                        SizedBox(width: 10),
-                        Text(
-                          'Added to favorites',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    backgroundColor: Colors.green,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 10,
-                    ),
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-              } else {
-                // Remove from liked_books
-                await likedRef.doc(widget.bookId).delete();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Row(
-                      children: const [
-                        Icon(Icons.favorite_border, color: Colors.white),
-                        SizedBox(width: 10),
-                        Text(
-                          'Removed from favorites',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    backgroundColor: Colors.green,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 10,
-                    ),
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-              }
-            },
+  if (isLiked) {
+  // Save to liked_books
+  await likedRef.doc(widget.bookId).set({'bookId': widget.bookId});
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Row(
+        children: const [
+          Icon(Icons.favorite, color: Colors.white),
+          SizedBox(width: 10),
+          Text(
+            'Added to favorites',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+      backgroundColor: Colors.green,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      duration: const Duration(seconds: 2),
+    ),
+  );
+} else {
+  // Remove from liked_books
+  await likedRef.doc(widget.bookId).delete();
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Row(
+        children: const [
+          Icon(Icons.favorite_border, color: Colors.white),
+          SizedBox(width: 10),
+          Text(
+            'Removed from favorites',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+      backgroundColor: Colors.green,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      duration: const Duration(seconds: 2),
+    ),
+  );
+}
+            }
+
           ),
         ],
       ),
       body: FutureBuilder<DocumentSnapshot>(
-        future:
-            FirebaseFirestore.instance
-                .collection('books')
-                .doc(widget.bookId)
-                .get(),
+        future: FirebaseFirestore.instance.collection('books').doc(widget.bookId).get(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -308,8 +258,7 @@ class _BookDetailsState extends State<BookDetails> {
           final List<dynamic> images = book['images'] as List<dynamic>? ?? [];
           final bookTitle = book['title'] ?? 'Untitled';
           final bookAuthor = book['author'] ?? 'Unknown Author';
-          final bookDescription =
-              book['description'] ?? 'No description available';
+          final bookDescription = book['description'] ?? 'No description available';
           final bookPrice = book['price']?.toString() ?? '0';
           final isFixedPrice = book['isFixedPrice'] as bool? ?? true;
           final bookCategory = book['category'] ?? 'Uncategorized';
@@ -327,44 +276,33 @@ class _BookDetailsState extends State<BookDetails> {
                 children: [
                   Container(
                     height: 300,
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 16,
-                    ),
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(20),
                       color: Colors.grey[200],
                     ),
-                    child:
-                        images.isNotEmpty &&
-                                images[selectedImageIndex] is String
-                            ? ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
-                              child: Image.memory(
-                                base64Decode(
-                                  (images[selectedImageIndex] as String)
-                                      .split(',')
-                                      .last,
+                    child: images.isNotEmpty && images[selectedImageIndex] is String
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+                            child: Image.memory(
+                              base64Decode((images[selectedImageIndex] as String).split(',').last),
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => const Center(
+                                child: Icon(
+                                  Icons.broken_image,
+                                  size: 50,
+                                  color: Colors.grey,
                                 ),
-                                fit: BoxFit.cover,
-                                errorBuilder:
-                                    (context, error, stackTrace) =>
-                                        const Center(
-                                          child: Icon(
-                                            Icons.broken_image,
-                                            size: 50,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                              ),
-                            )
-                            : const Center(
-                              child: Icon(
-                                Icons.book,
-                                size: 100,
-                                color: Colors.grey,
                               ),
                             ),
+                          )
+                        : const Center(
+                            child: Icon(
+                              Icons.book,
+                              size: 100,
+                              color: Colors.grey,
+                            ),
+                          ),
                   ),
                   if (images.length > 1)
                     Padding(
@@ -383,10 +321,9 @@ class _BookDetailsState extends State<BookDetails> {
                               height: 8,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color:
-                                    selectedImageIndex == index
-                                        ? const Color(0xFF23D7BC)
-                                        : Colors.grey[300],
+                                color: selectedImageIndex == index
+                                    ? const Color(0xFF23D7BC)
+                                    : Colors.grey[300],
                               ),
                             ),
                           ),
@@ -429,8 +366,7 @@ class _BookDetailsState extends State<BookDetails> {
                             (i) => Icon(
                               Icons.star,
                               size: 18,
-                              color:
-                                  i < rating ? Colors.amber : Colors.grey[300],
+                              color: i < rating ? Colors.amber : Colors.grey[300],
                             ),
                           ),
                         ),
@@ -479,69 +415,52 @@ class _BookDetailsState extends State<BookDetails> {
                         Text('Phone: $sellerPhone'),
                         const SizedBox(height: 24),
                         Row(
-                          children: [
-                            ElevatedButton(
-                              onPressed:
-                                  isSoldOut || isAddedToCart
-                                      ? null
-                                      : _addToCart,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF23D7BC),
-                                foregroundColor: Colors.white,
-                                elevation: 2,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 14,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                textStyle: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              child: Text(
-                                isSoldOut
-                                    ? 'Sold Out'
-                                    : isAddedToCart
-                                    ? 'Added to Cart'
-                                    : 'Add to Cart',
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            OutlinedButton(
-                              onPressed:
-                                  () =>
-                                      _launchWhatsApp(sellerPhone, sellerName),
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(
-                                  color: Color(0xFF23D7BC),
-                                ),
-                                foregroundColor: const Color(0xFF23D7BC),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 14,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                textStyle: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              child: const Text('Contact Seller'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+  children: [
+    ElevatedButton(
+      onPressed: isSoldOut || isAddedToCart ? null : _addToCart,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF23D7BC),
+        foregroundColor: Colors.white,
+        elevation: 2,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        textStyle: const TextStyle(fontWeight: FontWeight.bold),
       ),
-    );
-  }
+      child: Text(
+        isSoldOut
+            ? 'Sold Out'
+            : isAddedToCart
+                ? 'Added to Cart'
+                : 'Add to Cart',
+      ),
+    ),
+    const SizedBox(width: 16),
+    OutlinedButton(
+      onPressed: () => _launchWhatsApp(sellerPhone, sellerName),
+      style: OutlinedButton.styleFrom(
+        side: const BorderSide(color: Color(0xFF23D7BC)),
+        foregroundColor: const Color(0xFF23D7BC),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        textStyle: const TextStyle(fontWeight: FontWeight.bold),
+      ),
+      child: const Text('Contact Seller'),
+    ),
+  ],
+),
+],
+),
+),
+],
+),
+),
+);
+},
+),
+);
+}
 }
