@@ -28,15 +28,15 @@
 - **WhatsApp API**
 
 ---
-
 ## 📷 Screenshots
 
-```markdown
+### 🏠 Home Screen  
 ![Home Screen](screenshots/home.jpeg)
-![Book Details](screenshots/book_details.jpeg)
-```
 
 ---
+
+### 📖 Book Details Page  
+![Book Details](screenshots/book_details.jpeg)
 
 ## 📦 Installation
 
@@ -84,12 +84,14 @@ To launch the app on your connected device or emulator, run:
 ```bash
 flutter run
 ```
+
 ## 📋 UML Overview
 
 The app’s user journey is documented in a PlantUML diagram.
 
 You can find the full user flow diagram here:
 
-📄 [`/docs/app-flow.puml`](screenshots/uml.jpeg)
+![uml](screenshots/uml.jpeg)
+
 
 
