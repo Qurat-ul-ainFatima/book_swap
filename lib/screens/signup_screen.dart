@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
+import 'email_verification_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -21,6 +23,25 @@ class _SignupScreenState extends State<SignupScreen> {
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _contactController = TextEditingController();
 
+  // Country code related variables
+  String _selectedCountryCode = '+92'; // Default to Pakistan
+  String _selectedCountryName = 'Pakistan';
+  int _expectedDigits = 10; // Default for Pakistan
+
+  // Country codes with their expected digit counts
+  final Map<String, Map<String, dynamic>> _countryCodes = {
+    '+1': {'name': 'USA/Canada', 'digits': 10},
+    '+44': {'name': 'UK', 'digits': 10},
+    '+91': {'name': 'India', 'digits': 10},
+    '+92': {'name': 'Pakistan', 'digits': 10},
+    '+971': {'name': 'UAE', 'digits': 9},
+    '+966': {'name': 'Saudi Arabia', 'digits': 9},
+    '+49': {'name': 'Germany', 'digits': 11},
+    '+33': {'name': 'France', 'digits': 10},
+    '+86': {'name': 'China', 'digits': 11},
+    '+81': {'name': 'Japan', 'digits': 10},
+  };
+
   Future<void> _signup() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -32,18 +53,26 @@ class _SignupScreenState extends State<SignupScreen> {
         password: _passwordController.text.trim(),
       );
 
-      final uid = userCredential.user!.uid;
+      // Send email verification
+      await userCredential.user!.sendEmailVerification();
 
-      await FirebaseFirestore.instance.collection('users').doc(uid).set({
-        'username': _usernameController.text.trim(),
-        'email': _emailController.text.trim(),
-        'address': _addressController.text.trim(),
-        'contact': _contactController.text.trim(),
-        'createdAt': Timestamp.now(),
-      });
-
+      // Navigate to email verification screen
       if (mounted) {
-        Navigator.pushReplacementNamed(context, '/home');
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => EmailVerificationScreen(
+              userData: {
+                'username': _usernameController.text.trim(),
+                'email': _emailController.text.trim(),
+                'address': _addressController.text.trim(),
+                'contact': '$_selectedCountryCode${_contactController.text.trim()}',
+                'createdAt': Timestamp.now(),
+              },
+              uid: userCredential.user!.uid,
+            ),
+          ),
+        );
       }
     } on FirebaseAuthException catch (e) {
       String errorMessage = 'An error occurred. Please try again.';
@@ -59,6 +88,51 @@ class _SignupScreenState extends State<SignupScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showCountryCodePicker() {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          height: 400,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Select Country Code',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _countryCodes.length,
+                  itemBuilder: (context, index) {
+                    String code = _countryCodes.keys.elementAt(index);
+                    Map<String, dynamic> countryData = _countryCodes[code]!;
+                    
+                    return ListTile(
+                      title: Text('${countryData['name']} ($code)'),
+                      subtitle: Text('Expected digits: ${countryData['digits']}'),
+                      onTap: () {
+                        setState(() {
+                          _selectedCountryCode = code;
+                          _selectedCountryName = countryData['name'];
+                          _expectedDigits = countryData['digits'];
+                          _contactController.clear(); // Clear previous input
+                        });
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -94,8 +168,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         const SizedBox(height: 8),
                         _buildLabeledField("Address", _addressController, 'Enter your address'),
                         const SizedBox(height: 8),
-                        _buildLabeledField("Contact", _contactController, 'Enter your contact number',
-                            keyboardType: TextInputType.phone),
+                        _buildContactField(),
                         const SizedBox(height: 12),
                         _isLoading
                             ? const CircularProgressIndicator()
@@ -108,7 +181,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
-                                child: const Text('Sign Up', style: TextStyle(color: Colors.white)),
+                                child: const Text('Sign Up & Verify Email', style: TextStyle(color: Colors.white)),
                               ),
                         const SizedBox(height: 6),
                         Row(
@@ -130,6 +203,74 @@ class _SignupScreenState extends State<SignupScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildContactField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Contact:", style: TextStyle(fontSize: 14)),
+        const SizedBox(height: 2),
+        Row(
+          children: [
+            // Country code selector button
+            GestureDetector(
+              onTap: _showCountryCodePicker,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(color: Colors.grey.shade400),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _selectedCountryCode,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.arrow_drop_down, size: 20),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Phone number input field
+            Expanded(
+              child: TextFormField(
+                controller: _contactController,
+                keyboardType: TextInputType.phone,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(_expectedDigits),
+                ],
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: Colors.grey[300],
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30),
+                    borderSide: BorderSide.none,
+                  ),
+                  hintText: 'Enter phone number ($_expectedDigits digits)',
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Enter your contact number';
+                  }
+                  if (value.length != _expectedDigits) {
+                    return 'Must be exactly $_expectedDigits digits for $_selectedCountryName';
+                  }
+                  return null;
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
